@@ -2,3 +2,5 @@
 data/
 __pycache__/
 models/
+mlflow.db
+mlruns/
