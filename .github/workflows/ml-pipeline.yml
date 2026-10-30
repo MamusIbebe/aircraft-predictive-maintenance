@@ -1,0 +1,54 @@
+# Step 14: on every push, rebuild everything from scratch and prove it still works.
+name: ml-pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # adds a "Run workflow" button in the Actions tab
+
+jobs:
+  train-test-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install libraries (CPU-only PyTorch)
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Unit tests
+        run: pytest -v
+
+      - name: Download NASA data
+        run: |
+          mkdir -p data/raw
+          curl -sL -o data/nasa.zip "https://phm-datasets.s3.amazonaws.com/NASA/6.+Turbofan+Engine+Degradation+Simulation+Data+Set.zip"
+          unzip -q -o data/nasa.zip -d data/
+          unzip -q -o "data/6. Turbofan Engine Degradation Simulation Data Set/CMAPSSData.zip" -d data/raw/
+
+      - name: Prepare data and train the LSTM
+        run: |
+          mkdir -p models reports
+          python src/data.py
+          python src/split.py
+          python src/features.py
+          python src/train_lstm.py
+
+      - name: Quality gate (fails the pipeline if the model is not good enough)
+        run: python src/quality_gate.py
+
+      - name: Build the Docker image
+        run: docker build -t engine-api .
+
+      - name: Smoke test the container
+        run: |
+          docker run -d --name api -p 8000:8000 engine-api
+          for i in $(seq 1 30); do curl -sf localhost:8000/health && break; sleep 2; done
+          curl -sf localhost:8000/predict/fleet-engine/34
