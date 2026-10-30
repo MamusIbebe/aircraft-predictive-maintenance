@@ -55,3 +55,19 @@ jobs:
           docker run -d --name api -p 8000:8000 engine-api
           for i in $(seq 1 30); do curl -sf localhost:8000/health && break; sleep 2; done
           curl -sf localhost:8000/predict/fleet-engine/34
+
+      - name: Log in to Docker Hub
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push the image to Docker Hub
+        if: github.ref == 'refs/heads/main'
+        run: |
+          IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/engine-api
+          docker tag engine-api $IMAGE:latest
+          docker tag engine-api $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
+          docker push $IMAGE:${{ github.sha }}
