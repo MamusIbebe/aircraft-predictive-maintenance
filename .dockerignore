@@ -1,0 +1,6 @@
+.venv
+.git
+mlruns
+mlflow.db
+data/*.csv
+data/*.duckdb
