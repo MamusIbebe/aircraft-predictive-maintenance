@@ -44,6 +44,9 @@ jobs:
       - name: Quality gate (fails the pipeline if the model is not good enough)
         run: python src/quality_gate.py
 
+      - name: Drift check
+        run: python src/drift.py
+
       - name: Build the Docker image
         run: docker build -t engine-api .
 
